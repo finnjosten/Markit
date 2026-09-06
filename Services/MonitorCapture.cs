@@ -19,6 +19,13 @@ public static class MonitorCapture
     [DllImport("gdi32.dll")]
     private static extern bool DeleteObject(IntPtr hObject);
 
+    /// <summary>Just the device name (e.g. for opening History without a full capture).</summary>
+    public static string DeviceNameUnderCursor() => Screen.FromPoint(Cursor.Position).DeviceName;
+
+    /// <summary>Just the physical bounds (e.g. for positioning the toolbar over a
+    /// monitor without actually freezing/capturing it).</summary>
+    public static Rectangle BoundsUnderCursor() => Screen.FromPoint(Cursor.Position).Bounds;
+
     public static MonitorSnapshot CaptureMonitorUnderCursor()
     {
         var screen = Screen.FromPoint(Cursor.Position);

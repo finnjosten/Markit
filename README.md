@@ -2,8 +2,9 @@
 
 A minimal Win11-style "freeze and draw" screen annotation tool. Press a hotkey,
 the monitor under your cursor freezes, and a small floating toolbar lets you
-draw on top of it — pen, highlighter, eraser, undo, a quick radial tool menu,
-and edits that persist per monitor so you can pick up where you left off.
+draw on top of it — pen, highlighter, eraser, undo, save/copy the result, a
+quick radial tool menu, and a 7-day per-monitor history of past drawings you
+can browse and reopen.
 
 ## How it works
 
@@ -18,10 +19,19 @@ and edits that persist per monitor so you can pick up where you left off.
    expandable palette, adjust thickness with the slider, undo the last stroke, or
    clear everything.
 5. Tap **Space** anywhere in the overlay for a radial quick-tool menu at your
-   cursor — click a tool to switch, click anywhere else to dismiss.
-6. Press **Esc**, click the ✕ button, or press the hotkey again to exit — the
-   overlay closes (saving your strokes for that monitor) and the toolbar hides.
-7. Right-click the tray icon to toggle drawing mode manually, open Settings, or quit.
+   cursor — click a tool (or Save) to use it, click anywhere else to dismiss.
+6. The save/copy button (toolbar or radial menu) composites the screenshot + ink
+   into one image, copies it to the clipboard, and saves it as a PNG into the
+   folder configured in Settings.
+7. The History button (toolbar, next to Save) opens a thumbnail browser of past
+   drawings from the last 7 days on the active monitor — click one to reopen it
+   on a fresh capture of that monitor (ending and saving the current session first,
+   if any). Also reachable from the tray icon when no session is active.
+8. Press **Esc**, click the ✕ button, or press the hotkey again to exit — the
+   overlay closes (saving your strokes for that monitor, if you drew anything)
+   and the toolbar hides.
+9. Right-click the tray icon to toggle drawing mode, open History, open
+   Settings, or quit.
 
 Keyboard shortcuts also work directly while the overlay is focused: `R G B O Y P`
 for colors (`Shift+color` for highlighter), `Ctrl+Z` undo, `E` erase all, `X`
@@ -86,11 +96,20 @@ recreate it. To remove autostart, delete the `.lnk` file from `shell:startup`.
 - **Multi-monitor + DPI**: only the monitor under the cursor is captured
   (`Services/MonitorCapture.cs`), using physical-pixel bounds so it's correct
   on mixed-DPI setups (`app.manifest` declares Per-Monitor-V2 DPI awareness).
-- **Per-monitor ink persistence** (`Services/InkStore.cs`): strokes are
-  serialized (WPF's native ISF format via `StrokeCollection.Save`/`ctor(Stream)`)
-  to `%AppData%\Markit\ink\<display>.isf`, keyed by `Screen.DeviceName`, on
-  every session exit. The resume hotkey loads them back in for a fresh capture
-  of that same monitor.
+- **Per-monitor history** (`Services/InkStore.cs`): each session's strokes
+  (WPF's native ISF format via `StrokeCollection.Save`/`ctor(Stream)`) plus a
+  lowres preview PNG (`DrawOverlayWindow.RenderThumbnail`) are saved as one
+  timestamped entry to `%AppData%\Markit\history\<display>\`, keyed by
+  `Screen.DeviceName`. Entries older than 7 days are pruned automatically on
+  save. Empty sessions (nothing drawn) aren't saved. The resume hotkey loads
+  the newest entry for the monitor under the cursor. The History thumbnail
+  list is a collapsible panel embedded directly in `MainWindow` (`HistoryPanel`,
+  built in code-behind — not a separate window) — deliberately not a second
+  window, since closing one right before the next freeze was catching a stale/
+  fading frame of it in the capture. `MainWindow.Hide()` (already used before
+  every capture) is a plain visibility change with no close animation to race
+  against, so embedding sidesteps the problem entirely rather than papering
+  over it with delays.
 - **Z-order**: the toolbar and the fullscreen overlay are separate topmost
   windows. Clicking into the overlay can otherwise bump it above the toolbar
   in the topmost z-order band — the overlay fires `UserInteracted` on every
@@ -103,14 +122,18 @@ recreate it. To remove autostart, delete the `.lnk` file from `shell:startup`.
   that z-order bump, so `ReclaimOverlayFocus()` always re-asserts topmost right
   after focusing.
 - **Settings** (`Services/AppSettings.cs`) persist to
-  `%AppData%\Markit\settings.json`: both hotkeys and the last-used
-  color/thickness per tool.
+  `%AppData%\Markit\settings.json`: both hotkeys, the last-used color/thickness
+  per tool, and the screenshot save folder (defaults to `Pictures\Markit\`).
+- **Versioning**: the only version number in this project is `<Version>` in
+  `Markit.csproj` — it's inert build metadata (visible in Explorer's file
+  Properties), not read or displayed anywhere in the running app, and isn't
+  bumped automatically. Update it by hand when it matters.
 - **Deferred to a future v2**: pausing media on freeze (sending the
   `VK_MEDIA_PLAY_PAUSE` virtual key), and a "live edit" mode where the draw
   layer is click-through for scrolling except while actively drawing (doable
   later via `WS_EX_TRANSPARENT`/`WS_EX_LAYERED` toggling in `WindowStyles.cs`).
   A "switch to another display" toolbar option is also plausible cheaply, since
-  it'd reuse the same per-monitor ink save/load path.
+  it'd reuse the same per-monitor history save/load path.
 
 ## Project layout
 
@@ -120,13 +143,14 @@ Markit/
 ├── app.manifest              (Per-Monitor-V2 DPI awareness)
 ├── Assets/AppIcon.ico
 ├── App.xaml / App.xaml.cs    (tray icon, startup, crash logging)
-├── MainWindow.xaml / .cs     (the floating toolbar; tool/color/width state)
+├── MainWindow.xaml / .cs     (the floating toolbar; tool/color/width state;
+│                              embeds the History thumbnail panel)
 ├── DrawOverlayWindow.xaml / .cs   (fullscreen freeze + InkCanvas + radial menu)
-├── SettingsWindow.xaml / .cs (hotkey capture UI, both hotkeys)
+├── SettingsWindow.xaml / .cs (hotkey + save-folder capture UI)
 └── Services/
     ├── MonitorCapture.cs      (screenshot of the monitor under the cursor)
     ├── WindowStyles.cs        (topmost / tool-window / no-activate / exact positioning)
     ├── GlobalHotkeyService.cs (RegisterHotKey/WM_HOTKEY wrapper, supports multiple ids)
-    ├── InkStore.cs            (per-monitor ISF stroke persistence)
-    └── AppSettings.cs         (JSON-persisted hotkeys + last color/width per tool)
+    ├── InkStore.cs            (per-monitor timestamped history: ISF strokes + PNG thumbnail)
+    └── AppSettings.cs         (JSON-persisted hotkeys + last color/width per tool + save folder)
 ```

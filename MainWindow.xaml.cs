@@ -1,10 +1,17 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Markit.Services;
+using Brushes = System.Windows.Media.Brushes;
+using Button = System.Windows.Controls.Button;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
+using Cursors = System.Windows.Input.Cursors;
+using HorizontalAlignment = System.Windows.HorizontalAlignment;
+using Image = System.Windows.Controls.Image;
 using MouseEventArgs = System.Windows.Input.MouseEventArgs;
 
 namespace Markit;
@@ -193,10 +200,19 @@ public partial class MainWindow : Window
 
     private static string ToHex(Color color) => $"#{color.R:X2}{color.G:X2}{color.B:X2}";
 
-    private void StartDrawSession(bool restoreLastEdits)
+    /// <summary>Starts a fresh capture of the monitor under the cursor. If
+    /// <paramref name="historyEntry"/> is given, its ink is loaded on top (used
+    /// when opening a specific past drawing from History); otherwise
+    /// <paramref name="restoreLastEdits"/> loads the most recent entry instead.</summary>
+    private void StartDrawSession(bool restoreLastEdits, HistoryEntry? historyEntry = null)
     {
         // Make sure the toolbar itself isn't part of the screenshot.
         Hide();
+
+        // A real draw session always starts on the pen/color panel, not wherever
+        // History happened to be left showing (e.g. tray-invoked browsing).
+        HistoryPanel.Visibility = Visibility.Collapsed;
+        PalettePanel.Visibility = Visibility.Visible;
 
         var snapshot = MonitorCapture.CaptureMonitorUnderCursor();
         _activeMonitorDeviceName = snapshot.DeviceName;
@@ -209,12 +225,117 @@ public partial class MainWindow : Window
         _activeOverlay.Show();
         ApplyActiveToolToOverlay();
 
-        if (restoreLastEdits && InkStore.Load(snapshot.DeviceName) is { } strokes)
-            _activeOverlay.LoadStrokes(strokes);
+        var strokesToLoad = historyEntry != null
+            ? InkStore.LoadStrokes(historyEntry)
+            : restoreLastEdits ? InkStore.LoadLatest(snapshot.DeviceName) : null;
+        if (strokesToLoad != null)
+            _activeOverlay.LoadStrokes(strokesToLoad);
 
         PositionOverMonitor(snapshot.PhysicalBounds);
         Show();
         ReassertToolbarTopmost();
+    }
+
+    /// <summary>Opens the History panel — embedded directly in the toolbar (not a
+    /// separate window) specifically so there's no second window to close/animate
+    /// right before the fresh capture below, which was catching stale/fading frames
+    /// of it. If invoked from the tray with no session active, brings up the toolbar
+    /// (without freezing anything) over whichever monitor is under the cursor first.</summary>
+    public void OpenHistory()
+    {
+        if (!IsVisible)
+        {
+            PositionOverMonitor(MonitorCapture.BoundsUnderCursor());
+            Show();
+            ReassertToolbarTopmost();
+            ShowHistoryPanel();
+            return;
+        }
+
+        if (HistoryPanel.Visibility == Visibility.Visible)
+        {
+            HistoryPanel.Visibility = Visibility.Collapsed;
+            PalettePanel.Visibility = Visibility.Visible;
+            ReclaimOverlayFocus();
+        }
+        else
+        {
+            ShowHistoryPanel();
+        }
+    }
+
+    private void ShowHistoryPanel()
+    {
+        PalettePanel.Visibility = Visibility.Collapsed;
+        HistoryPanel.Visibility = Visibility.Visible;
+
+        var deviceName = _activeMonitorDeviceName ?? MonitorCapture.DeviceNameUnderCursor();
+        var entries = InkStore.List(deviceName);
+
+        HistoryEntriesPanel.Children.Clear();
+        HistoryEmptyLabel.Visibility = entries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        foreach (var entry in entries)
+            HistoryEntriesPanel.Children.Add(BuildHistoryTile(entry));
+
+        ReclaimOverlayFocus();
+    }
+
+    private Button BuildHistoryTile(HistoryEntry entry)
+    {
+        var thumbnail = new BitmapImage();
+        thumbnail.BeginInit();
+        thumbnail.CacheOption = BitmapCacheOption.OnLoad;
+        thumbnail.UriSource = new Uri(entry.ThumbnailPath);
+        thumbnail.EndInit();
+        thumbnail.Freeze();
+
+        var image = new Image { Source = thumbnail, Stretch = Stretch.Uniform, Height = 70 };
+        var imageBorder = new Border
+        {
+            BorderBrush = new SolidColorBrush(Color.FromArgb(0x33, 0xFF, 0xFF, 0xFF)),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(4),
+            Child = image
+        };
+        var label = new TextBlock
+        {
+            Text = FormatHistoryLabel(entry.Timestamp),
+            Foreground = Brushes.White,
+            FontSize = 10,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Margin = new Thickness(0, 4, 0, 0)
+        };
+        var stack = new StackPanel { Width = 96 };
+        stack.Children.Add(imageBorder);
+        stack.Children.Add(label);
+
+        var button = new Button
+        {
+            Margin = new Thickness(4),
+            Padding = new Thickness(0),
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
+            Cursor = Cursors.Hand,
+            Content = stack
+        };
+        button.Click += (_, _) => OpenHistoryEntry(entry);
+
+        return button;
+    }
+
+    private void OpenHistoryEntry(HistoryEntry entry)
+    {
+        if (_activeOverlay != null)
+            EndDrawSession();
+        StartDrawSession(restoreLastEdits: false, entry);
+    }
+
+    private static string FormatHistoryLabel(DateTime timestamp)
+    {
+        string day = timestamp.Date == DateTime.Today ? "Today"
+            : timestamp.Date == DateTime.Today.AddDays(-1) ? "Yesterday"
+            : timestamp.ToString("MMM d");
+        return $"{day} {timestamp:HH:mm}";
     }
 
     private void OnOverlayExitRequested() => EndDrawSession();
@@ -229,8 +350,9 @@ public partial class MainWindow : Window
     {
         if (_activeOverlay != null)
         {
-            if (_activeMonitorDeviceName != null)
-                InkStore.Save(_activeMonitorDeviceName, _activeOverlay.GetStrokes());
+            var strokes = _activeOverlay.GetStrokes();
+            if (_activeMonitorDeviceName != null && strokes.Count > 0)
+                InkStore.Save(_activeMonitorDeviceName, strokes, _activeOverlay.RenderThumbnail());
 
             _activeOverlay.ExitRequested -= OnOverlayExitRequested;
             _activeOverlay.UserInteracted -= ReassertToolbarTopmost;
@@ -242,6 +364,8 @@ public partial class MainWindow : Window
         }
 
         PersistPenSettings();
+        HistoryPanel.Visibility = Visibility.Collapsed;
+        PalettePanel.Visibility = Visibility.Visible;
         Hide();
     }
 
@@ -273,6 +397,8 @@ public partial class MainWindow : Window
     private void SelectTool(ToolMode mode)
     {
         _activeTool = mode;
+        HistoryPanel.Visibility = Visibility.Collapsed;
+        PalettePanel.Visibility = Visibility.Visible;
         ColorGrid.Visibility = mode == ToolMode.Eraser ? Visibility.Collapsed : Visibility.Visible;
 
         switch (mode)
@@ -397,6 +523,8 @@ public partial class MainWindow : Window
         _activeOverlay?.SaveAndCopy(_settings.SaveFolder);
         ReclaimOverlayFocus();
     }
+
+    private void History_Click(object sender, RoutedEventArgs e) => OpenHistory();
 
     private void Exit_Click(object sender, RoutedEventArgs e) => EndDrawSession();
 

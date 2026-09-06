@@ -41,6 +41,7 @@ public partial class App : System.Windows.Application
 
         var menu = new System.Windows.Forms.ContextMenuStrip();
         menu.Items.Add("Toggle draw mode", null, (_, _) => _mainWindow?.ToggleDrawSession());
+        menu.Items.Add("History...", null, (_, _) => _mainWindow?.OpenHistory());
         menu.Items.Add("Settings...", null, (_, _) => _mainWindow?.OpenSettings());
         menu.Items.Add("Exit", null, (_, _) => Shutdown());
         _trayIcon.ContextMenuStrip = menu;

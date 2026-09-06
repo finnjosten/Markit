@@ -250,12 +250,23 @@ public partial class DrawOverlayWindow : Window
 
     /// <summary>Renders <see cref="ContentLayer"/> (screenshot + ink) at the monitor's
     /// actual physical pixel resolution, regardless of the window's current DPI scale.</summary>
-    private BitmapSource RenderContent()
+    private BitmapSource RenderContent() => RenderContentScaled(1.0);
+
+    /// <summary>A small preview of the current drawing, for the History browser.</summary>
+    public BitmapSource RenderThumbnail(int maxDimension = 240)
     {
-        double dpi = 96.0 * VisualTreeHelper.GetDpi(this).DpiScaleX;
-        var render = new RenderTargetBitmap(
-            _snapshot.PhysicalBounds.Width, _snapshot.PhysicalBounds.Height,
-            dpi, dpi, PixelFormats.Pbgra32);
+        double longestSide = Math.Max(_snapshot.PhysicalBounds.Width, _snapshot.PhysicalBounds.Height);
+        double scale = Math.Min(1.0, maxDimension / longestSide);
+        return RenderContentScaled(scale);
+    }
+
+    private BitmapSource RenderContentScaled(double scale)
+    {
+        double dpi = 96.0 * VisualTreeHelper.GetDpi(this).DpiScaleX * scale;
+        int pixelWidth = Math.Max(1, (int)(_snapshot.PhysicalBounds.Width * scale));
+        int pixelHeight = Math.Max(1, (int)(_snapshot.PhysicalBounds.Height * scale));
+
+        var render = new RenderTargetBitmap(pixelWidth, pixelHeight, dpi, dpi, PixelFormats.Pbgra32);
         render.Render(ContentLayer);
         render.Freeze();
         return render;
