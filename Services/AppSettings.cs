@@ -19,6 +19,9 @@ public sealed class AppSettings
     public double LastHighlighterWidth { get; set; } = 8;
     public double LastEraserWidth { get; set; } = 16;
 
+    public string SaveFolder { get; set; } =
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Markit");
+
     private static string FilePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "Markit", "settings.json");

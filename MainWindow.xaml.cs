@@ -140,11 +140,18 @@ public partial class MainWindow : Window
     {
         var window = new SettingsWindow(
             _settings.HotkeyModifiers, _settings.HotkeyVirtualKey, TryApplyHotkey,
-            _settings.ResumeHotkeyModifiers, _settings.ResumeHotkeyVirtualKey, TryApplyResumeHotkey)
+            _settings.ResumeHotkeyModifiers, _settings.ResumeHotkeyVirtualKey, TryApplyResumeHotkey,
+            _settings.SaveFolder, ApplySaveFolder)
         {
             Owner = this
         };
         window.ShowDialog();
+    }
+
+    private void ApplySaveFolder(string folder)
+    {
+        _settings.SaveFolder = folder;
+        _settings.Save();
     }
 
     private bool TryApplyHotkey(uint modifiers, uint virtualKey)
@@ -374,6 +381,12 @@ public partial class MainWindow : Window
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
         _activeOverlay?.ClearAll();
+        ReclaimOverlayFocus();
+    }
+
+    private void SaveAndCopy_Click(object sender, RoutedEventArgs e)
+    {
+        _activeOverlay?.SaveAndCopy(_settings.SaveFolder);
         ReclaimOverlayFocus();
     }
 

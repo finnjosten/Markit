@@ -36,9 +36,15 @@
     </Window.Resources>
 
     <Grid>
-        <Image x:Name="Screenshot" Stretch="Fill" IsHitTestVisible="False"/>
+        <!-- Rendered as-is (without the chrome/radial layers below) when exporting a screenshot. -->
+        <Grid x:Name="ContentLayer">
+            <Image x:Name="Screenshot" Stretch="Fill" IsHitTestVisible="False"/>
 
-        <InkCanvas x:Name="DrawCanvas" Background="Transparent"/>
+            <InkCanvas x:Name="DrawCanvas" Background="Transparent"
+                       StrokeCollected="DrawCanvas_StrokeCollected"
+                       PreviewMouseLeftButtonDown="DrawCanvas_PreviewMouseLeftButtonDown"
+                       PreviewMouseLeftButtonUp="DrawCanvas_PreviewMouseLeftButtonUp"/>
+        </Grid>
 
         <Grid IsHitTestVisible="False">
             <Border BorderBrush="#FFC107" BorderThickness="8"/>

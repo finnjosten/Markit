@@ -1,12 +1,17 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Ink;
 using System.Windows.Input;
 using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Markit.Services;
+using Clipboard = System.Windows.Clipboard;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using PixelFormats = System.Windows.Media.PixelFormats;
 using SolidColorBrush = System.Windows.Media.SolidColorBrush;
 
 namespace Markit;
@@ -28,7 +33,17 @@ public partial class DrawOverlayWindow : Window
         [Key.P] = (Color)ColorConverter.ConvertFromString("#F48FB1")!,
     };
 
+    /// <summary>One undoable gesture: strokes added and/or removed by it. Covers plain
+    /// drawing (Added only) and erasing (Removed for a fully-erased stroke, or both
+    /// Added+Removed when EraseByPoint splits a stroke into shorter pieces).</summary>
+    private sealed record UndoAction(StrokeCollection Added, StrokeCollection Removed);
+
     private readonly MonitorSnapshot _snapshot;
+    private readonly List<UndoAction> _undoStack = new();
+    private StrokeCollection? _gestureAdded;
+    private StrokeCollection? _gestureRemoved;
+    private bool _isApplyingUndo;
+
     private Color _color = ColorKeys[Key.R];
     private bool _highlighter;
     private double _width = 4;
@@ -53,6 +68,7 @@ public partial class DrawOverlayWindow : Window
         _snapshot = snapshot;
         Screenshot.Source = snapshot.Image;
         ApplyAttributes();
+        DrawCanvas.Strokes.StrokesChanged += OnStrokesChanged;
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -88,7 +104,15 @@ public partial class DrawOverlayWindow : Window
     public StrokeCollection GetStrokes() => DrawCanvas.Strokes;
 
     /// <summary>Replaces the current strokes, e.g. when resuming a previous session's edits.</summary>
-    public void LoadStrokes(StrokeCollection strokes) => DrawCanvas.Strokes = strokes;
+    public void LoadStrokes(StrokeCollection strokes)
+    {
+        // Assigning Strokes swaps in a whole new collection instance, so the
+        // StrokesChanged subscription (attached to the old instance) must move too.
+        DrawCanvas.Strokes.StrokesChanged -= OnStrokesChanged;
+        DrawCanvas.Strokes = strokes;
+        DrawCanvas.Strokes.StrokesChanged += OnStrokesChanged;
+        _undoStack.Clear(); // nothing before the loaded baseline is meaningful to undo back to
+    }
 
     /// <summary>Keeps the radial menu's Pen/Highlighter icons showing the actual
     /// current color of each tool, independent of which one is presently active.</summary>
@@ -110,15 +134,127 @@ public partial class DrawOverlayWindow : Window
         attributes.Height = width;
     }
 
+    /// <summary>Undoes the last gesture — a drawn stroke, or an erase (full removal
+    /// or a partial erase that split a stroke into shorter pieces).</summary>
     public void Undo()
     {
-        if (DrawCanvas.Strokes.Count > 0)
-            DrawCanvas.Strokes.RemoveAt(DrawCanvas.Strokes.Count - 1);
+        if (_undoStack.Count == 0)
+            return;
+
+        var action = _undoStack[^1];
+        _undoStack.RemoveAt(_undoStack.Count - 1);
+
+        _isApplyingUndo = true;
+        try
+        {
+            foreach (var stroke in action.Added)
+                DrawCanvas.Strokes.Remove(stroke);
+            foreach (var stroke in action.Removed)
+                DrawCanvas.Strokes.Add(stroke);
+        }
+        finally
+        {
+            _isApplyingUndo = false;
+        }
     }
 
-    public void ClearAll() => DrawCanvas.Strokes.Clear();
+    public void ClearAll()
+    {
+        DrawCanvas.Strokes.Clear();
+        _undoStack.Clear(); // otherwise a later Undo could try to remove an already-gone stroke
+    }
+
+    /// <summary>A freshly-drawn stroke is recorded here directly — not via the mouse-gesture
+    /// batching below — because <see cref="StrokeCollected"/> fires exactly when InkCanvas
+    /// commits it, whereas the tunneling PreviewMouseLeftButtonUp fires earlier (before that
+    /// commit), which was silently dropping every drawn stroke's undo entry.</summary>
+    private void DrawCanvas_StrokeCollected(object sender, InkCanvasStrokeCollectedEventArgs e)
+    {
+        _undoStack.Add(new UndoAction(new StrokeCollection { e.Stroke }, new StrokeCollection()));
+    }
+
+    /// <summary>Tracks an eraser drag's net stroke changes (which can span several
+    /// StrokesChanged events as the eraser passes over multiple strokes) as one undo
+    /// entry, so Ctrl+Z reverses "one erase gesture" at a time.</summary>
+    private void DrawCanvas_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        _gestureAdded = new StrokeCollection();
+        _gestureRemoved = new StrokeCollection();
+    }
+
+    private void DrawCanvas_PreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_gestureAdded is { Count: > 0 } || _gestureRemoved is { Count: > 0 })
+            _undoStack.Add(new UndoAction(_gestureAdded!, _gestureRemoved!));
+
+        _gestureAdded = null;
+        _gestureRemoved = null;
+    }
+
+    private void OnStrokesChanged(object? sender, StrokeCollectionChangedEventArgs e)
+    {
+        // Drawn strokes are handled by StrokeCollected instead — without this guard
+        // a normal pen stroke could get recorded twice (once here, once there).
+        if (_isApplyingUndo || DrawCanvas.EditingMode != InkCanvasEditingMode.EraseByPoint)
+            return;
+
+        if (_gestureAdded is null || _gestureRemoved is null)
+            return; // outside a tracked erase gesture (ClearAll/LoadStrokes/Undo itself)
+
+        foreach (var stroke in e.Added)
+            _gestureAdded.Add(stroke);
+        foreach (var stroke in e.Removed)
+            _gestureRemoved.Add(stroke);
+    }
 
     public void RequestExit() => ExitRequested?.Invoke();
+
+    /// <summary>Composites the frozen screenshot + ink (not the border/watermark chrome
+    /// or radial menu) into one image, copies it to the clipboard, and saves it as a PNG
+    /// into <paramref name="folder"/> (created if it doesn't exist yet).</summary>
+    public void SaveAndCopy(string folder)
+    {
+        var bitmap = RenderContent();
+
+        try
+        {
+            Clipboard.SetImage(bitmap);
+        }
+        catch
+        {
+            // Another app can transiently hold the clipboard open — not fatal, still try to save.
+        }
+
+        try
+        {
+            Directory.CreateDirectory(folder);
+            var path = Path.Combine(folder, $"Markit_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}.png");
+
+            var encoder = new PngBitmapEncoder();
+            encoder.Frames.Add(BitmapFrame.Create(bitmap));
+            using var stream = File.Create(path);
+            encoder.Save(stream);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(this,
+                $"Could not save the screenshot to \"{folder}\": {ex.Message}",
+                "Markit", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>Renders <see cref="ContentLayer"/> (screenshot + ink) at the monitor's
+    /// actual physical pixel resolution, regardless of the window's current DPI scale.</summary>
+    private BitmapSource RenderContent()
+    {
+        double dpi = 96.0 * VisualTreeHelper.GetDpi(this).DpiScaleX;
+        var render = new RenderTargetBitmap(
+            _snapshot.PhysicalBounds.Width, _snapshot.PhysicalBounds.Height,
+            dpi, dpi, PixelFormats.Pbgra32);
+        render.Render(ContentLayer);
+        render.Freeze();
+        return render;
+    }
 
     private bool IsRadialMenuOpen => RadialMenuLayer.Visibility == Visibility.Visible;
 

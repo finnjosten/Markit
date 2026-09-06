@@ -19,6 +19,18 @@
         <TextBlock Text="Click a button, then press your desired key combination."
                    Foreground="#99FFFFFF" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
 
+        <TextBlock Text="Screenshot save folder" Foreground="White" FontWeight="SemiBold" Margin="0,18,0,0"/>
+        <Grid Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="SaveFolderTextBox" Grid.Column="0" IsReadOnly="True"
+                     Padding="6,4" VerticalContentAlignment="Center" TextWrapping="Wrap"/>
+            <Button Content="Browse..." Grid.Column="1" Margin="8,0,0,0" Padding="10,4"
+                    Click="BrowseSaveFolder_Click"/>
+        </Grid>
+
         <Button Content="Close" Padding="16,4" Margin="0,20,0,0"
                 HorizontalAlignment="Right" Click="Close_Click"/>
     </StackPanel>

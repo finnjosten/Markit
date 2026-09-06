@@ -12,15 +12,19 @@ public partial class SettingsWindow : Window
     private readonly Func<uint, uint, bool> _tryApplyStart;
     private readonly Func<uint, uint, bool> _tryApplyResume;
 
+    private readonly Action<string> _applySaveFolder;
+
     private uint _startModifiers;
     private uint _startVirtualKey;
     private uint _resumeModifiers;
     private uint _resumeVirtualKey;
+    private string _saveFolder;
     private HotkeySlot _capturing = HotkeySlot.None;
 
     public SettingsWindow(
         uint startModifiers, uint startVirtualKey, Func<uint, uint, bool> tryApplyStart,
-        uint resumeModifiers, uint resumeVirtualKey, Func<uint, uint, bool> tryApplyResume)
+        uint resumeModifiers, uint resumeVirtualKey, Func<uint, uint, bool> tryApplyResume,
+        string saveFolder, Action<string> applySaveFolder)
     {
         InitializeComponent();
 
@@ -32,8 +36,28 @@ public partial class SettingsWindow : Window
         _resumeVirtualKey = resumeVirtualKey;
         _tryApplyResume = tryApplyResume;
 
+        _saveFolder = saveFolder;
+        _applySaveFolder = applySaveFolder;
+        SaveFolderTextBox.Text = _saveFolder;
+
         UpdateButtonText(HotkeySlot.Start);
         UpdateButtonText(HotkeySlot.Resume);
+    }
+
+    private void BrowseSaveFolder_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            SelectedPath = _saveFolder,
+            Description = "Choose where screenshots are saved"
+        };
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+            return;
+
+        _saveFolder = dialog.SelectedPath;
+        SaveFolderTextBox.Text = _saveFolder;
+        _applySaveFolder(_saveFolder);
     }
 
     private void UpdateButtonText(HotkeySlot slot)
