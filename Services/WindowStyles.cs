@@ -1,11 +1,11 @@
 using System.Runtime.InteropServices;
 
-namespace ZoomItToolbar.Services;
+namespace Markit.Services;
 
 /// <summary>
 /// Applies the extended window styles that let the toolbar float above
-/// ZoomIt's overlay, stay off the taskbar/alt-tab, and receive clicks
-/// without stealing keyboard focus from ZoomIt.
+/// the fullscreen draw overlay, stay off the taskbar/alt-tab, and receive
+/// clicks without stealing keyboard focus from the overlay.
 /// </summary>
 public static class WindowStyles
 {

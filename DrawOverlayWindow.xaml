@@ -1,7 +1,7 @@
-<Window x:Class="ZoomItToolbar.DrawOverlayWindow"
+<Window x:Class="Markit.DrawOverlayWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ZoomIt Toolbar - Draw"
+        Title="Markit - Draw"
         WindowStyle="None"
         ResizeMode="NoResize"
         ShowInTaskbar="False"
@@ -10,6 +10,30 @@
         WindowStartupLocation="Manual"
         PreviewKeyDown="Window_PreviewKeyDown"
         PreviewMouseDown="Window_PreviewMouseDown">
+
+    <Window.Resources>
+        <Style x:Key="RadialButton" TargetType="Button">
+            <Setter Property="Width" Value="50"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Ellipse Fill="#EE1F1F1F" Stroke="#55FFFFFF" StrokeThickness="1"/>
+                            <Ellipse x:Name="Ring" Stroke="White" StrokeThickness="0" Margin="-3"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Ring" Property="StrokeThickness" Value="2"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
 
     <Grid>
         <Image x:Name="Screenshot" Stretch="Fill" IsHitTestVisible="False"/>
@@ -22,6 +46,49 @@
                     Background="#CC000000" CornerRadius="8" Padding="12,7">
                 <TextBlock Text="DRAWING" Foreground="White" FontSize="14" FontWeight="SemiBold"/>
             </Border>
+        </Grid>
+
+        <!-- Radial quick-tool menu: tap Space to open at the cursor, tap a tool to pick it,
+             tap anywhere else (the scrim) to dismiss without changing tools. -->
+        <Grid x:Name="RadialMenuLayer" Visibility="Collapsed">
+            <Rectangle Fill="Transparent" MouseDown="RadialMenuScrim_MouseDown"/>
+            <Canvas x:Name="RadialMenuCanvas">
+                <Button x:Name="RadialPenButton" Style="{StaticResource RadialButton}" Click="RadialPenButton_Click" ToolTip="Pen">
+                    <Viewbox Width="22" Height="22">
+                        <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                            <StackPanel.RenderTransform>
+                                <RotateTransform Angle="135"/>
+                            </StackPanel.RenderTransform>
+                            <Border Width="16" Height="6" CornerRadius="3" Background="#F5F5F5"/>
+                            <Border x:Name="RadialPenTipIndicator" Width="7" Height="6" CornerRadius="3" Background="#FF4B4B" Margin="-1,0,0,0"/>
+                        </StackPanel>
+                    </Viewbox>
+                </Button>
+
+                <Button x:Name="RadialHighlighterButton" Style="{StaticResource RadialButton}" Click="RadialHighlighterButton_Click" ToolTip="Highlighter">
+                    <Viewbox Width="22" Height="22">
+                        <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                            <StackPanel.RenderTransform>
+                                <RotateTransform Angle="135"/>
+                            </StackPanel.RenderTransform>
+                            <Border Width="13" Height="10" CornerRadius="2" Background="#F5F5F5"/>
+                            <Border x:Name="RadialHighlighterTipIndicator" Width="8" Height="10" CornerRadius="2" Background="#FFD54F" Margin="-1,0,0,0"/>
+                        </StackPanel>
+                    </Viewbox>
+                </Button>
+
+                <Button x:Name="RadialEraserButton" Style="{StaticResource RadialButton}" Click="RadialEraserButton_Click" ToolTip="Eraser">
+                    <Viewbox Width="22" Height="22">
+                        <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                            <StackPanel.RenderTransform>
+                                <RotateTransform Angle="-45"/>
+                            </StackPanel.RenderTransform>
+                            <Border Width="9" Height="12" CornerRadius="2,0,0,2" Background="#F48FB1"/>
+                            <Border Width="9" Height="12" CornerRadius="0,2,2,0" Background="#F5F5F5" Margin="-1,0,0,0"/>
+                        </StackPanel>
+                    </Viewbox>
+                </Button>
+            </Canvas>
         </Grid>
     </Grid>
 </Window>

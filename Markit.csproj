@@ -7,12 +7,12 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>ZoomItToolbar</AssemblyName>
-    <RootNamespace>ZoomItToolbar</RootNamespace>
-    <StartupObject>ZoomItToolbar.App</StartupObject>
+    <AssemblyName>Markit</AssemblyName>
+    <RootNamespace>Markit</RootNamespace>
+    <StartupObject>Markit.App</StartupObject>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
-    <Product>ZoomIt Toolbar</Product>
+    <Product>Markit</Product>
     <Version>1.0.0</Version>
   </PropertyGroup>
 

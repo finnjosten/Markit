@@ -1,8 +1,8 @@
-<Window x:Class="ZoomItToolbar.MainWindow"
+<Window x:Class="Markit.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ZoomIt Toolbar"
-        Width="220"
+        Title="Markit"
+        Width="280"
         SizeToContent="Height"
         WindowStyle="None"
         AllowsTransparency="True"
@@ -64,6 +64,34 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Used by the Pen/Highlighter/Eraser tool RadioButtons: exactly one
+             stays checked at a time (same GroupName), amber background when active. -->
+        <Style x:Key="ToolButton" TargetType="ToggleButton">
+            <Setter Property="Width" Value="34"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="2,0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bg" Background="{TemplateBinding Background}" CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#22FFFFFF"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bg" Property="Background" Value="#FFC107"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Border CornerRadius="18" Background="#EE1F1F1F" Padding="10"
@@ -77,8 +105,48 @@
         <StackPanel>
             <DockPanel LastChildFill="False" Height="34">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left" VerticalAlignment="Center">
-                    <Button x:Name="PenSwatch" Style="{StaticResource ColorDot}" Background="#FF4B4B"
-                            Click="PenSwatch_Click" ToolTip="Pen color &amp; thickness"/>
+
+                    <RadioButton x:Name="PenToolButton" GroupName="Tool"
+                                 Style="{StaticResource ToolButton}" Checked="PenToolButton_Checked"
+                                 ToolTip="Pen">
+                        <Viewbox Width="20" Height="20">
+                            <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                                <StackPanel.RenderTransform>
+                                    <RotateTransform Angle="135"/>
+                                </StackPanel.RenderTransform>
+                                <Border Width="16" Height="6" CornerRadius="3" Background="#F5F5F5"/>
+                                <Border x:Name="PenTipIndicator" Width="7" Height="6" CornerRadius="3" Background="#FF4B4B" Margin="-1,0,0,0"/>
+                            </StackPanel>
+                        </Viewbox>
+                    </RadioButton>
+
+                    <RadioButton x:Name="HighlighterToolButton" GroupName="Tool"
+                                 Style="{StaticResource ToolButton}" Checked="HighlighterToolButton_Checked"
+                                 ToolTip="Highlighter">
+                        <Viewbox Width="20" Height="20">
+                            <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                                <StackPanel.RenderTransform>
+                                    <RotateTransform Angle="135"/>
+                                </StackPanel.RenderTransform>
+                                <Border Width="13" Height="10" CornerRadius="2" Background="#F5F5F5"/>
+                                <Border x:Name="HighlighterTipIndicator" Width="8" Height="10" CornerRadius="2" Background="#FFD54F" Margin="-1,0,0,0"/>
+                            </StackPanel>
+                        </Viewbox>
+                    </RadioButton>
+
+                    <RadioButton x:Name="EraserToolButton" GroupName="Tool"
+                                 Style="{StaticResource ToolButton}" Checked="EraserToolButton_Checked"
+                                 ToolTip="Eraser (X)">
+                        <Viewbox Width="20" Height="20">
+                            <StackPanel Orientation="Horizontal" RenderTransformOrigin="0.5,0.5">
+                                <StackPanel.RenderTransform>
+                                    <RotateTransform Angle="-45"/>
+                                </StackPanel.RenderTransform>
+                                <Border Width="9" Height="12" CornerRadius="2,0,0,2" Background="#F48FB1"/>
+                                <Border Width="9" Height="12" CornerRadius="0,2,2,0" Background="#F5F5F5" Margin="-1,0,0,0"/>
+                            </StackPanel>
+                        </Viewbox>
+                    </RadioButton>
 
                     <Rectangle Width="1" Height="24" Fill="#33FFFFFF" Margin="8,0"/>
 
@@ -91,9 +159,9 @@
                         Content="&#x2715;" Click="Exit_Click" ToolTip="Exit drawing mode (Esc)"/>
             </DockPanel>
 
-            <Border x:Name="PalettePanel" Visibility="Collapsed" Margin="0,10,0,0">
+            <Border x:Name="PalettePanel" Margin="0,10,0,0">
                 <StackPanel>
-                    <UniformGrid Columns="6" Rows="2">
+                    <UniformGrid x:Name="ColorGrid" Columns="6" Rows="2">
                         <Button Style="{StaticResource ColorDot}" Background="#FF4B4B" Click="PaletteColor_Click" ToolTip="Red"/>
                         <Button Style="{StaticResource ColorDot}" Background="#4CAF50" Click="PaletteColor_Click" ToolTip="Green"/>
                         <Button Style="{StaticResource ColorDot}" Background="#4A90D9" Click="PaletteColor_Click" ToolTip="Blue"/>
@@ -108,24 +176,10 @@
                         <Button Style="{StaticResource ColorDot}" Background="#000000" Click="PaletteColor_Click" ToolTip="Black"/>
                     </UniformGrid>
 
-                    <Grid Margin="4,10,4,2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-
-                        <ToggleButton x:Name="HighlighterToggle" Grid.Column="0"
-                                      Width="34" Height="26"
-                                      Foreground="White" Background="Transparent" BorderThickness="1"
-                                      BorderBrush="#55FFFFFF" Cursor="Hand" ToolTip="Highlighter mode (Shift+color)"
-                                      Content="H" Checked="HighlighterToggle_Changed" Unchecked="HighlighterToggle_Changed"/>
-
-                        <Slider x:Name="ThicknessSlider" Grid.Column="1"
-                                Margin="10,0,0,0" VerticalAlignment="Center"
-                                Minimum="2" Maximum="20" Value="4"
-                                ValueChanged="ThicknessSlider_ValueChanged"
-                                ToolTip="Pen thickness"/>
-                    </Grid>
+                    <Slider x:Name="ThicknessSlider" Margin="4,10,4,2" VerticalAlignment="Center"
+                            Minimum="2" Maximum="20" Value="4"
+                            ValueChanged="ThicknessSlider_ValueChanged"
+                            ToolTip="Thickness"/>
                 </StackPanel>
             </Border>
         </StackPanel>

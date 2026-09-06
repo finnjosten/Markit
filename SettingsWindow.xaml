@@ -1,7 +1,7 @@
-<Window x:Class="ZoomItToolbar.SettingsWindow"
+<Window x:Class="Markit.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="ZoomIt Toolbar - Settings"
+        Title="Markit - Settings"
         Width="320"
         SizeToContent="Height"
         ResizeMode="NoResize"
@@ -10,10 +10,14 @@
         PreviewKeyDown="Window_PreviewKeyDown">
 
     <StackPanel Margin="20">
-        <TextBlock Text="Global hotkey" Foreground="White" FontWeight="SemiBold"/>
-        <Button x:Name="HotkeyButton" Height="34" Margin="0,8,0,0" Click="HotkeyButton_Click"/>
-        <TextBlock Text="Click the button, then press your desired key combination."
-                   Foreground="#99FFFFFF" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+        <TextBlock Text="Start / toggle drawing" Foreground="White" FontWeight="SemiBold"/>
+        <Button x:Name="StartHotkeyButton" Height="34" Margin="0,8,0,0" Click="StartHotkeyButton_Click"/>
+
+        <TextBlock Text="Resume last edits (per display)" Foreground="White" FontWeight="SemiBold" Margin="0,18,0,0"/>
+        <Button x:Name="ResumeHotkeyButton" Height="34" Margin="0,8,0,0" Click="ResumeHotkeyButton_Click"/>
+
+        <TextBlock Text="Click a button, then press your desired key combination."
+                   Foreground="#99FFFFFF" FontSize="11" Margin="0,10,0,0" TextWrapping="Wrap"/>
 
         <Button Content="Close" Padding="16,4" Margin="0,20,0,0"
                 HorizontalAlignment="Right" Click="Close_Click"/>

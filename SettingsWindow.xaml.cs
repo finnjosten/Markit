@@ -1,40 +1,65 @@
 using System.Windows;
 using System.Windows.Input;
-using ZoomItToolbar.Services;
+using Markit.Services;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
 
-namespace ZoomItToolbar;
+namespace Markit;
 
 public partial class SettingsWindow : Window
 {
-    private readonly Func<uint, uint, bool> _tryApplyHotkey;
-    private uint _modifiers;
-    private uint _virtualKey;
-    private bool _capturing;
+    private enum HotkeySlot { None, Start, Resume }
 
-    public SettingsWindow(uint modifiers, uint virtualKey, Func<uint, uint, bool> tryApplyHotkey)
+    private readonly Func<uint, uint, bool> _tryApplyStart;
+    private readonly Func<uint, uint, bool> _tryApplyResume;
+
+    private uint _startModifiers;
+    private uint _startVirtualKey;
+    private uint _resumeModifiers;
+    private uint _resumeVirtualKey;
+    private HotkeySlot _capturing = HotkeySlot.None;
+
+    public SettingsWindow(
+        uint startModifiers, uint startVirtualKey, Func<uint, uint, bool> tryApplyStart,
+        uint resumeModifiers, uint resumeVirtualKey, Func<uint, uint, bool> tryApplyResume)
     {
         InitializeComponent();
-        _modifiers = modifiers;
-        _virtualKey = virtualKey;
-        _tryApplyHotkey = tryApplyHotkey;
-        UpdateButtonText();
+
+        _startModifiers = startModifiers;
+        _startVirtualKey = startVirtualKey;
+        _tryApplyStart = tryApplyStart;
+
+        _resumeModifiers = resumeModifiers;
+        _resumeVirtualKey = resumeVirtualKey;
+        _tryApplyResume = tryApplyResume;
+
+        UpdateButtonText(HotkeySlot.Start);
+        UpdateButtonText(HotkeySlot.Resume);
     }
 
-    private void UpdateButtonText()
+    private void UpdateButtonText(HotkeySlot slot)
     {
-        HotkeyButton.Content = _capturing ? "Press a key combination..." : FormatHotkey(_modifiers, _virtualKey);
+        bool capturing = _capturing == slot;
+        if (slot == HotkeySlot.Start)
+            StartHotkeyButton.Content = capturing ? "Press a key combination..." : FormatHotkey(_startModifiers, _startVirtualKey);
+        else
+            ResumeHotkeyButton.Content = capturing ? "Press a key combination..." : FormatHotkey(_resumeModifiers, _resumeVirtualKey);
     }
 
-    private void HotkeyButton_Click(object sender, RoutedEventArgs e)
+    private void StartHotkeyButton_Click(object sender, RoutedEventArgs e)
     {
-        _capturing = true;
-        UpdateButtonText();
+        _capturing = HotkeySlot.Start;
+        UpdateButtonText(HotkeySlot.Start);
+    }
+
+    private void ResumeHotkeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _capturing = HotkeySlot.Resume;
+        UpdateButtonText(HotkeySlot.Resume);
     }
 
     private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (!_capturing)
+        if (_capturing == HotkeySlot.None)
             return;
 
         var key = e.Key == Key.System ? e.SystemKey : e.Key;
@@ -46,11 +71,12 @@ public partial class SettingsWindow : Window
             return; // still waiting for a non-modifier key
         }
 
-        _capturing = false;
+        var slot = _capturing;
+        _capturing = HotkeySlot.None;
 
         if (key == Key.Escape)
         {
-            UpdateButtonText(); // cancel — revert to the current combination
+            UpdateButtonText(slot); // cancel — revert to the current combination
             return;
         }
 
@@ -61,21 +87,28 @@ public partial class SettingsWindow : Window
         {
             System.Windows.MessageBox.Show(this,
                 "Choose a combination that includes at least one modifier key (Ctrl/Alt/Shift/Win).",
-                "ZoomIt Toolbar", MessageBoxButton.OK, MessageBoxImage.Warning);
-        }
-        else if (_tryApplyHotkey(modifiers, virtualKey))
-        {
-            _modifiers = modifiers;
-            _virtualKey = virtualKey;
+                "Markit", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
         else
         {
-            System.Windows.MessageBox.Show(this,
-                "That combination is already in use by another application.",
-                "ZoomIt Toolbar", MessageBoxButton.OK, MessageBoxImage.Warning);
+            bool ok = slot == HotkeySlot.Start
+                ? _tryApplyStart(modifiers, virtualKey)
+                : _tryApplyResume(modifiers, virtualKey);
+
+            if (ok)
+            {
+                if (slot == HotkeySlot.Start) { _startModifiers = modifiers; _startVirtualKey = virtualKey; }
+                else { _resumeModifiers = modifiers; _resumeVirtualKey = virtualKey; }
+            }
+            else
+            {
+                System.Windows.MessageBox.Show(this,
+                    "That combination is already in use by another application.",
+                    "Markit", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
         }
 
-        UpdateButtonText();
+        UpdateButtonText(slot);
     }
 
     private static string FormatHotkey(uint modifiers, uint virtualKey)

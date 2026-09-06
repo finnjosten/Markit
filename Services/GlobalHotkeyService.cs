@@ -1,12 +1,13 @@
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
 
-namespace ZoomItToolbar.Services;
+namespace Markit.Services;
 
 public sealed class GlobalHotkeyService : IDisposable
 {
     private const int WM_HOTKEY = 0x0312;
-    private const int HOTKEY_ID = 9000;
+
+    private readonly int _hotkeyId;
 
     [Flags]
     public enum Modifiers : uint
@@ -31,9 +32,13 @@ public sealed class GlobalHotkeyService : IDisposable
 
     /// <param name="hwndSource">The HwndSource of the (already created) window
     /// that should receive the WM_HOTKEY message.</param>
-    public GlobalHotkeyService(HwndSource hwndSource)
+    /// <param name="hotkeyId">Distinguishes this instance's WM_HOTKEY messages from
+    /// any other GlobalHotkeyService sharing the same hwndSource (e.g. a second,
+    /// independent global hotkey registered on the same window).</param>
+    public GlobalHotkeyService(HwndSource hwndSource, int hotkeyId = 9000)
     {
         _source = hwndSource;
+        _hotkeyId = hotkeyId;
         _source.AddHook(WndProc);
     }
 
@@ -43,7 +48,7 @@ public sealed class GlobalHotkeyService : IDisposable
     /// <see cref="System.Windows.Input.KeyInterop.VirtualKeyFromKey"/>.</param>
     public bool Register(uint modifiers, uint virtualKey)
     {
-        _registered = RegisterHotKey(_source.Handle, HOTKEY_ID, modifiers, virtualKey);
+        _registered = RegisterHotKey(_source.Handle, _hotkeyId, modifiers, virtualKey);
         return _registered;
     }
 
@@ -53,13 +58,13 @@ public sealed class GlobalHotkeyService : IDisposable
     public bool ChangeHotkey(uint modifiers, uint virtualKey)
     {
         if (_registered)
-            UnregisterHotKey(_source.Handle, HOTKEY_ID);
+            UnregisterHotKey(_source.Handle, _hotkeyId);
         return Register(modifiers, virtualKey);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
-        if (msg == WM_HOTKEY && wParam.ToInt32() == HOTKEY_ID)
+        if (msg == WM_HOTKEY && wParam.ToInt32() == _hotkeyId)
         {
             HotkeyPressed?.Invoke();
             handled = true;
@@ -70,7 +75,7 @@ public sealed class GlobalHotkeyService : IDisposable
     public void Dispose()
     {
         if (_registered)
-            UnregisterHotKey(_source.Handle, HOTKEY_ID);
+            UnregisterHotKey(_source.Handle, _hotkeyId);
         _source.RemoveHook(WndProc);
     }
 }
