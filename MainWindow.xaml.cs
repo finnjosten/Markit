@@ -205,6 +205,7 @@ public partial class MainWindow : Window
         _activeOverlay.ExitRequested += OnOverlayExitRequested;
         _activeOverlay.UserInteracted += ReassertToolbarTopmost;
         _activeOverlay.ToolSelected += OnRadialToolSelected;
+        _activeOverlay.SaveRequested += OnRadialSaveRequested;
         _activeOverlay.Show();
         ApplyActiveToolToOverlay();
 
@@ -234,6 +235,7 @@ public partial class MainWindow : Window
             _activeOverlay.ExitRequested -= OnOverlayExitRequested;
             _activeOverlay.UserInteracted -= ReassertToolbarTopmost;
             _activeOverlay.ToolSelected -= OnRadialToolSelected;
+            _activeOverlay.SaveRequested -= OnRadialSaveRequested;
             _activeOverlay.Close();
             _activeOverlay = null;
             _activeMonitorDeviceName = null;
@@ -381,6 +383,12 @@ public partial class MainWindow : Window
     private void Clear_Click(object sender, RoutedEventArgs e)
     {
         _activeOverlay?.ClearAll();
+        ReclaimOverlayFocus();
+    }
+
+    private void OnRadialSaveRequested()
+    {
+        _activeOverlay?.SaveAndCopy(_settings.SaveFolder);
         ReclaimOverlayFocus();
     }
 

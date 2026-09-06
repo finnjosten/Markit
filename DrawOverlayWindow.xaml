@@ -94,6 +94,11 @@
                         </StackPanel>
                     </Viewbox>
                 </Button>
+
+                <Button x:Name="RadialSaveButton" Style="{StaticResource RadialButton}" Click="RadialSaveButton_Click" ToolTip="Save &amp; copy screenshot">
+                    <TextBlock Text="&#xE74E;" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets, Segoe UI Symbol"
+                               FontSize="20" Foreground="White"/>
+                </Button>
             </Canvas>
         </Grid>
     </Grid>

@@ -62,6 +62,11 @@ public partial class DrawOverlayWindow : Window
     /// subscribes to keep its own tool buttons/state in sync.</summary>
     public event Action<RadialTool>? ToolSelected;
 
+    /// <summary>Fired when the radial menu's Save button is clicked. The toolbar
+    /// subscribes and calls <see cref="SaveAndCopy"/> with the configured folder,
+    /// since this window doesn't know that setting.</summary>
+    public event Action? SaveRequested;
+
     public DrawOverlayWindow(MonitorSnapshot snapshot)
     {
         InitializeComponent();
@@ -264,7 +269,7 @@ public partial class DrawOverlayWindow : Window
     private void OpenRadialMenu()
     {
         var center = Mouse.GetPosition(RadialMenuCanvas);
-        var buttons = new[] { RadialPenButton, RadialHighlighterButton, RadialEraserButton };
+        var buttons = new[] { RadialPenButton, RadialHighlighterButton, RadialEraserButton, RadialSaveButton };
         const double radius = 55;
 
         for (int i = 0; i < buttons.Length; i++)
@@ -292,6 +297,12 @@ public partial class DrawOverlayWindow : Window
     private void RadialPenButton_Click(object sender, RoutedEventArgs e) => SelectRadialTool(RadialTool.Pen);
     private void RadialHighlighterButton_Click(object sender, RoutedEventArgs e) => SelectRadialTool(RadialTool.Highlighter);
     private void RadialEraserButton_Click(object sender, RoutedEventArgs e) => SelectRadialTool(RadialTool.Eraser);
+
+    private void RadialSaveButton_Click(object sender, RoutedEventArgs e)
+    {
+        SaveRequested?.Invoke();
+        CloseRadialMenu();
+    }
 
     private void Window_PreviewMouseDown(object sender, MouseButtonEventArgs e) => UserInteracted?.Invoke();
 
