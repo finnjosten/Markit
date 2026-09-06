@@ -1,0 +1,21 @@
+<Window x:Class="ZoomItToolbar.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ZoomIt Toolbar - Settings"
+        Width="320"
+        SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="#1F1F1F"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <StackPanel Margin="20">
+        <TextBlock Text="Global hotkey" Foreground="White" FontWeight="SemiBold"/>
+        <Button x:Name="HotkeyButton" Height="34" Margin="0,8,0,0" Click="HotkeyButton_Click"/>
+        <TextBlock Text="Click the button, then press your desired key combination."
+                   Foreground="#99FFFFFF" FontSize="11" Margin="0,6,0,0" TextWrapping="Wrap"/>
+
+        <Button Content="Close" Padding="16,4" Margin="0,20,0,0"
+                HorizontalAlignment="Right" Click="Close_Click"/>
+    </StackPanel>
+</Window>
